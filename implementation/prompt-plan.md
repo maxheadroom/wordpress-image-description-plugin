@@ -3,7 +3,7 @@
 ## Checklist
 - [x] Prompt 1: Set up basic plugin structure and activation
 - [x] Prompt 2: Create settings page with API configuration
-- [ ] Prompt 3: Implement OpenAI API client
+- [x] Prompt 3: Implement OpenAI API client
 - [ ] Prompt 4: Add bulk action to Media Library
 - [ ] Prompt 5: Create basic batch processing system
 - [ ] Prompt 6: Implement image description generation
