@@ -119,8 +119,8 @@ class WP_Image_Descriptions_Plugin_Updater {
         }
         
         // GitHub repository information
-        $github_user = 'your-username'; // Change this to your GitHub username
-        $github_repo = 'wp-image-descriptions'; // Change this to your repository name
+        $github_user = 'maxheadroom'; // Change this to your GitHub username
+        $github_repo = 'wordpress-image-description-plugin'; // Change this to your repository name
         
         // You can also use a custom update server URL instead
         $update_url = "https://api.github.com/repos/{$github_user}/{$github_repo}/releases/latest";
