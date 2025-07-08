@@ -93,6 +93,12 @@ class WP_Image_Descriptions_Media_Library {
             return add_query_arg('wp_image_descriptions_message', 'insufficient_permissions', $redirect_to);
         }
         
+        // Validate API configuration before processing
+        $api_validation = $this->validate_api_configuration();
+        if (!$api_validation['valid']) {
+            return add_query_arg('wp_image_descriptions_message', $api_validation['error_code'], $redirect_to);
+        }
+        
         // Validate post IDs
         if (empty($post_ids) || !is_array($post_ids)) {
             return add_query_arg('wp_image_descriptions_message', 'no_images_selected', $redirect_to);
@@ -119,35 +125,18 @@ class WP_Image_Descriptions_Media_Library {
         // Redirect based on mode
         if ($mode === 'test') {
             // For test mode, start processing in background and redirect to preview
-            $queue_processor = new WP_Image_Descriptions_Queue_Processor();
-            
-            // Start processing asynchronously (in MVP this is actually synchronous)
-            // In a separate request to avoid timeout issues
             wp_schedule_single_event(time() + 1, 'wp_image_descriptions_process_batch', array($result['batch_id']));
             
             // Redirect to preview page
             $preview_url = admin_url('admin.php?page=wp-image-descriptions-preview&batch_id=' . $result['batch_id']);
             return $preview_url;
         } else {
-            // Process immediately in production mode
-            $queue_processor = new WP_Image_Descriptions_Queue_Processor();
-            $process_result = $queue_processor->process_batch($result['batch_id']);
+            // Production mode: process and apply immediately
+            wp_schedule_single_event(time() + 1, 'wp_image_descriptions_process_batch_production', array($result['batch_id']));
             
-            if ($process_result['success']) {
-                // Apply results immediately
-                $apply_result = $batch_manager->apply_batch_results($result['batch_id']);
-                
-                if ($apply_result['success']) {
-                    $message = 'batch_completed';
-                    $redirect_to = add_query_arg('descriptions_applied', $apply_result['applied'], $redirect_to);
-                } else {
-                    $message = 'batch_apply_failed';
-                }
-            } else {
-                $message = 'batch_processing_failed';
-            }
-            
-            return add_query_arg('wp_image_descriptions_message', $message, $redirect_to);
+            // Redirect to a processing status page
+            $processing_url = admin_url('admin.php?page=wp-image-descriptions-processing&batch_id=' . $result['batch_id']);
+            return $processing_url;
         }
     }
     
@@ -312,46 +301,92 @@ class WP_Image_Descriptions_Media_Library {
         switch ($message_type) {
             case 'insufficient_permissions':
                 echo '<div class="notice notice-error is-dismissible">';
-                echo '<p>' . esc_html__('You do not have permission to generate image descriptions.', 'wp-image-descriptions') . '</p>';
+                echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
+                echo esc_html__('You do not have permission to generate image descriptions. Please contact your administrator.', 'wp-image-descriptions') . '</p>';
                 echo '</div>';
                 break;
                 
             case 'no_images_selected':
                 echo '<div class="notice notice-warning is-dismissible">';
-                echo '<p>' . esc_html__('Please select at least one image to generate descriptions.', 'wp-image-descriptions') . '</p>';
+                echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
+                echo esc_html__('Please select at least one image to generate descriptions.', 'wp-image-descriptions') . '</p>';
                 echo '</div>';
                 break;
                 
             case 'no_images_found':
                 echo '<div class="notice notice-warning is-dismissible">';
-                echo '<p>' . esc_html__('No valid images found in your selection.', 'wp-image-descriptions') . '</p>';
+                echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
+                echo esc_html__('No valid images found in your selection. Please ensure you have selected image files (JPEG, PNG, GIF, WebP).', 'wp-image-descriptions') . '</p>';
                 echo '</div>';
                 break;
                 
             case 'batch_creation_failed':
                 echo '<div class="notice notice-error is-dismissible">';
-                echo '<p>' . esc_html__('Failed to create processing batch. Please try again.', 'wp-image-descriptions') . '</p>';
+                echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
+                echo esc_html__('Failed to create processing batch. This may be due to database issues or plugin configuration problems. Please try again or contact support.', 'wp-image-descriptions') . '</p>';
+                echo '<p><a href="' . esc_url(admin_url('tools.php?page=wp-image-descriptions-diagnostics')) . '" class="button button-secondary">' . 
+                     esc_html__('Run Diagnostics', 'wp-image-descriptions') . '</a></p>';
                 echo '</div>';
                 break;
                 
             case 'batch_completed':
                 echo '<div class="notice notice-success is-dismissible">';
-                echo '<p>' . sprintf(
-                    esc_html__('Successfully generated and applied descriptions for %d images.', 'wp-image-descriptions'),
-                    $descriptions_applied
-                ) . '</p>';
+                echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
+                if ($descriptions_applied > 0) {
+                    echo sprintf(
+                        esc_html__('Successfully generated and applied descriptions for %d images! Your images are now more accessible.', 'wp-image-descriptions'),
+                        $descriptions_applied
+                    );
+                } else {
+                    echo esc_html__('Processing completed successfully!', 'wp-image-descriptions');
+                }
+                echo '</p>';
                 echo '</div>';
                 break;
                 
             case 'batch_processing_failed':
                 echo '<div class="notice notice-error is-dismissible">';
-                echo '<p>' . esc_html__('Failed to process images. Please check your API configuration and try again.', 'wp-image-descriptions') . '</p>';
+                echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
+                echo esc_html__('Failed to process images. This could be due to API configuration issues, network problems, or invalid images.', 'wp-image-descriptions') . '</p>';
+                echo '<p><strong>' . esc_html__('Troubleshooting steps:', 'wp-image-descriptions') . '</strong></p>';
+                echo '<ul style="margin-left: 20px;">';
+                echo '<li>' . esc_html__('Check your API configuration in Settings → Image Descriptions', 'wp-image-descriptions') . '</li>';
+                echo '<li>' . esc_html__('Verify your API key is valid and has sufficient credits', 'wp-image-descriptions') . '</li>';
+                echo '<li>' . esc_html__('Ensure selected images are in supported formats (JPEG, PNG, GIF, WebP)', 'wp-image-descriptions') . '</li>';
+                echo '<li>' . esc_html__('Try processing fewer images at once', 'wp-image-descriptions') . '</li>';
+                echo '</ul>';
+                echo '<p>';
+                echo '<a href="' . esc_url(admin_url('options-general.php?page=wp-image-descriptions-settings')) . '" class="button button-secondary">' . 
+                     esc_html__('Check Settings', 'wp-image-descriptions') . '</a> ';
+                echo '<a href="' . esc_url(admin_url('tools.php?page=wp-image-descriptions-diagnostics')) . '" class="button button-secondary">' . 
+                     esc_html__('Run Diagnostics', 'wp-image-descriptions') . '</a>';
+                echo '</p>';
                 echo '</div>';
                 break;
                 
             case 'batch_apply_failed':
                 echo '<div class="notice notice-error is-dismissible">';
-                echo '<p>' . esc_html__('Images were processed but failed to apply descriptions. Please try again.', 'wp-image-descriptions') . '</p>';
+                echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
+                echo esc_html__('Images were processed successfully, but failed to apply descriptions to your media library. This may be due to database permissions or WordPress configuration issues.', 'wp-image-descriptions') . '</p>';
+                echo '<p>' . esc_html__('You can try the process again, or contact your administrator if the problem persists.', 'wp-image-descriptions') . '</p>';
+                echo '</div>';
+                break;
+                
+            case 'api_configuration_missing':
+                echo '<div class="notice notice-error is-dismissible">';
+                echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
+                echo esc_html__('API configuration is missing or incomplete. Please configure your OpenAI API settings before generating descriptions.', 'wp-image-descriptions') . '</p>';
+                echo '<p><a href="' . esc_url(admin_url('options-general.php?page=wp-image-descriptions-settings')) . '" class="button button-primary">' . 
+                     esc_html__('Configure API Settings', 'wp-image-descriptions') . '</a></p>';
+                echo '</div>';
+                break;
+                
+            case 'rate_limit_exceeded':
+                echo '<div class="notice notice-warning is-dismissible">';
+                echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
+                echo esc_html__('API rate limit exceeded. Please wait a few minutes before trying again, or increase the rate limit delay in your settings.', 'wp-image-descriptions') . '</p>';
+                echo '<p><a href="' . esc_url(admin_url('options-general.php?page=wp-image-descriptions-settings')) . '" class="button button-secondary">' . 
+                     esc_html__('Adjust Rate Limiting', 'wp-image-descriptions') . '</a></p>';
                 echo '</div>';
                 break;
         }
@@ -390,6 +425,42 @@ class WP_Image_Descriptions_Media_Library {
         }
         </style>
         <?php
+    }
+    
+    /**
+     * Validate API configuration
+     */
+    private function validate_api_configuration() {
+        $settings = get_option('wp_image_descriptions_settings', array());
+        
+        // Check if API settings exist
+        if (empty($settings['api'])) {
+            return array(
+                'valid' => false,
+                'error_code' => 'api_configuration_missing'
+            );
+        }
+        
+        // Check required API fields
+        $required_fields = array('endpoint', 'api_key', 'model');
+        foreach ($required_fields as $field) {
+            if (empty($settings['api'][$field])) {
+                return array(
+                    'valid' => false,
+                    'error_code' => 'api_configuration_missing'
+                );
+            }
+        }
+        
+        // Validate API endpoint format
+        if (!filter_var($settings['api']['endpoint'], FILTER_VALIDATE_URL)) {
+            return array(
+                'valid' => false,
+                'error_code' => 'api_configuration_missing'
+            );
+        }
+        
+        return array('valid' => true);
     }
     
     /**

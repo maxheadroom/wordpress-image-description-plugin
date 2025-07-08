@@ -89,6 +89,7 @@ class WP_Image_Descriptions_Core {
         
         // Cron hooks for batch processing
         add_action('wp_image_descriptions_process_batch', array($this, 'cron_process_batch'));
+        add_action('wp_image_descriptions_process_batch_production', array($this, 'cron_process_batch_production'));
     }
     
     /**
@@ -264,6 +265,28 @@ class WP_Image_Descriptions_Core {
             error_log('WP Image Descriptions: Cron batch processing result: ' . print_r($result, true));
         } else {
             error_log('WP Image Descriptions: Queue processor not available for cron processing');
+        }
+    }
+    
+    /**
+     * Cron handler for production mode batch processing (process + apply)
+     */
+    public function cron_process_batch_production($batch_id) {
+        error_log('WP Image Descriptions: Cron processing production batch ' . $batch_id);
+        
+        if ($this->queue_processor && $this->batch_manager) {
+            // Process the batch
+            $result = $this->queue_processor->process_batch($batch_id);
+            error_log('WP Image Descriptions: Production batch processing result: ' . print_r($result, true));
+            
+            // If processing was successful, apply results immediately
+            if ($result['success'] && $result['completed'] > 0) {
+                error_log('WP Image Descriptions: Applying production batch results for ' . $batch_id);
+                $apply_result = $this->batch_manager->apply_batch_results($batch_id);
+                error_log('WP Image Descriptions: Production batch apply result: ' . print_r($apply_result, true));
+            }
+        } else {
+            error_log('WP Image Descriptions: Queue processor or batch manager not available for production cron processing');
         }
     }
     

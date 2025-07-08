@@ -25,6 +25,189 @@ class WP_Image_Descriptions_Preview_Page {
             'wp-image-descriptions-preview',
             array($this, 'render_preview_page')
         );
+        
+        // Add processing status page for production mode
+        add_submenu_page(
+            null, // No parent menu (hidden)
+            __('Image Descriptions Processing', 'wp-image-descriptions'),
+            __('Image Descriptions Processing', 'wp-image-descriptions'),
+            'edit_posts',
+            'wp-image-descriptions-processing',
+            array($this, 'render_processing_page')
+        );
+    }
+    
+    /**
+     * Render processing page for production mode
+     */
+    public function render_processing_page() {
+        // Check user capabilities
+        if (!current_user_can('edit_posts')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'wp-image-descriptions'));
+        }
+        
+        // Get batch ID from URL
+        $batch_id = isset($_GET['batch_id']) ? sanitize_text_field($_GET['batch_id']) : '';
+        
+        if (empty($batch_id)) {
+            wp_die(__('No batch ID provided.', 'wp-image-descriptions'));
+        }
+        
+        // Get batch details
+        $batch_manager = new WP_Image_Descriptions_Batch_Manager();
+        $batch_details = $batch_manager->get_batch_details($batch_id);
+        
+        if (!$batch_details) {
+            wp_die(__('Batch not found.', 'wp-image-descriptions'));
+        }
+        
+        $batch = $batch_details['batch'];
+        $jobs = $batch_details['jobs'];
+        
+        // Check if batch belongs to current user (or user is admin)
+        if ($batch->user_id != get_current_user_id() && !current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to view this batch.', 'wp-image-descriptions'));
+        }
+        
+        // Check if processing is complete
+        if ($batch->status === 'applied') {
+            // Redirect to media library with success message
+            $redirect_url = admin_url('upload.php?mode=list&wp_image_descriptions_message=batch_completed&descriptions_applied=' . $batch->completed_jobs);
+            wp_redirect($redirect_url);
+            exit;
+        }
+        
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Processing Images', 'wp-image-descriptions'); ?></h1>
+            
+            <?php $this->display_batch_info($batch); ?>
+            
+            <div style="background: #fff; padding: 20px; border: 1px solid #ddd; margin-bottom: 20px;">
+                <h2><?php esc_html_e('Processing Status', 'wp-image-descriptions'); ?></h2>
+                
+                <?php if ($batch->status === 'pending' || $batch->status === 'processing'): ?>
+                    <p><?php esc_html_e('Your images are being processed and descriptions will be applied automatically when complete.', 'wp-image-descriptions'); ?></p>
+                    
+                    <?php
+                    $total = intval($batch->total_jobs);
+                    $completed = intval($batch->completed_jobs);
+                    $failed = intval($batch->failed_jobs);
+                    $processed = $completed + $failed;
+                    $percentage = $total > 0 ? round(($processed / $total) * 100, 1) : 0;
+                    ?>
+                    
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: <?php echo esc_attr($percentage); ?>%;"></div>
+                    </div>
+                    
+                    <p style="text-align: center; margin-top: 10px;">
+                        <strong><?php echo sprintf(__('Processing: %d of %d images (%s%%)', 'wp-image-descriptions'), $processed, $total, $percentage); ?></strong>
+                    </p>
+                    
+                    <?php if ($completed > 0): ?>
+                        <p style="text-align: center; color: #46b450;">
+                            <?php echo sprintf(__('✅ %d descriptions generated successfully', 'wp-image-descriptions'), $completed); ?>
+                        </p>
+                    <?php endif; ?>
+                    
+                    <?php if ($failed > 0): ?>
+                        <p style="text-align: center; color: #dc3232;">
+                            <?php echo sprintf(__('❌ %d images failed to process', 'wp-image-descriptions'), $failed); ?>
+                        </p>
+                    <?php endif; ?>
+                    
+                <?php elseif ($batch->status === 'completed'): ?>
+                    <p style="color: #46b450; font-weight: bold;">
+                        <?php esc_html_e('✅ Processing complete! Applying descriptions to your media library...', 'wp-image-descriptions'); ?>
+                    </p>
+                    
+                <?php elseif ($batch->status === 'failed'): ?>
+                    <p style="color: #dc3232; font-weight: bold;">
+                        <?php esc_html_e('❌ Processing failed. Please try again or check your API configuration.', 'wp-image-descriptions'); ?>
+                    </p>
+                    
+                <?php endif; ?>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button type="button" class="button" onclick="location.reload();">
+                        <?php esc_html_e('Refresh Status', 'wp-image-descriptions'); ?>
+                    </button>
+                    
+                    <a href="<?php echo esc_url(admin_url('upload.php?mode=list')); ?>" class="button" style="margin-left: 10px;">
+                        <?php esc_html_e('Back to Media Library', 'wp-image-descriptions'); ?>
+                    </a>
+                </div>
+            </div>
+            
+            <?php if ($batch->status === 'completed' || $batch->status === 'failed'): ?>
+                <div style="background: #fff; padding: 20px; border: 1px solid #ddd;">
+                    <h3><?php esc_html_e('Processing Summary', 'wp-image-descriptions'); ?></h3>
+                    
+                    <?php
+                    $completed_jobs = array_filter($jobs, function($job) {
+                        return $job->status === 'completed';
+                    });
+                    $failed_jobs = array_filter($jobs, function($job) {
+                        return $job->status === 'failed';
+                    });
+                    ?>
+                    
+                    <?php if (!empty($completed_jobs)): ?>
+                        <h4 style="color: #46b450;"><?php esc_html_e('Successfully Processed Images', 'wp-image-descriptions'); ?></h4>
+                        <ul>
+                            <?php foreach ($completed_jobs as $job): ?>
+                                <li>
+                                    <strong><?php echo esc_html(get_the_title($job->attachment_id) ?: 'Untitled'); ?></strong>
+                                    <br><em><?php echo esc_html(wp_trim_words($job->generated_description, 15, '...')); ?></em>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($failed_jobs)): ?>
+                        <h4 style="color: #dc3232;"><?php esc_html_e('Failed Images', 'wp-image-descriptions'); ?></h4>
+                        <ul>
+                            <?php foreach ($failed_jobs as $job): ?>
+                                <li>
+                                    <strong><?php echo esc_html(get_the_title($job->attachment_id) ?: 'Untitled'); ?></strong>
+                                    <?php if (!empty($job->error_message)): ?>
+                                        <br><code><?php echo esc_html($job->error_message); ?></code>
+                                    <?php endif; ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <style>
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #007cba;
+            transition: width 0.3s ease;
+        }
+        </style>
+        
+        <script>
+        // Auto-refresh for pending/processing batches
+        <?php if (in_array($batch->status, ['pending', 'processing', 'completed'])): ?>
+        setTimeout(function() {
+            location.reload();
+        }, 3000); // Refresh every 3 seconds for production mode
+        <?php endif; ?>
+        </script>
+        <?php
     }
     
     /**

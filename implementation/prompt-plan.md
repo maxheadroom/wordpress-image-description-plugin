@@ -8,9 +8,9 @@
 - [x] Prompt 5: Create basic batch processing system
 - [x] Prompt 6: Implement image description generation
 - [x] Prompt 7: Add test mode preview page
-- [ ] Prompt 8: Implement production mode (apply descriptions)
-- [ ] Prompt 9: Add basic error handling and user feedback
-- [ ] Prompt 10: Wire everything together and test complete workflow
+- [x] Prompt 8: Implement production mode (apply descriptions)
+- [x] Prompt 9: Add basic error handling and user feedback
+- [x] Prompt 10: Wire everything together and test complete workflow
 
 ## Implementation Prompts
 

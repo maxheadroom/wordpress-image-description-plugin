@@ -219,10 +219,32 @@ class WP_Image_Descriptions_Queue_Processor {
             $api_result = $this->api_client->generate_description($image_url, $prompt_template);
             
             if (!$api_result['success']) {
-                throw new Exception('API call failed: ' . $api_result['error']);
+                // Check for specific error types
+                $error_message = $api_result['error'];
+                
+                if (strpos($error_message, 'Rate limit exceeded') !== false || strpos($error_message, '429') !== false) {
+                    throw new Exception('Rate limit exceeded. Please wait before retrying.');
+                } elseif (strpos($error_message, 'Authentication failed') !== false || strpos($error_message, '401') !== false) {
+                    throw new Exception('API authentication failed. Please check your API key.');
+                } elseif (strpos($error_message, 'Invalid request') !== false || strpos($error_message, '400') !== false) {
+                    throw new Exception('Invalid API request. Please check your settings.');
+                } elseif (strpos($error_message, 'server error') !== false || strpos($error_message, '500') !== false) {
+                    throw new Exception('API server error. Please try again later.');
+                } else {
+                    throw new Exception('API call failed: ' . $error_message);
+                }
             }
             
             $generated_description = $api_result['description'];
+            
+            // Validate generated description
+            if (empty($generated_description) || strlen(trim($generated_description)) < 5) {
+                throw new Exception('Generated description is too short or empty');
+            }
+            
+            // Sanitize description
+            $generated_description = sanitize_text_field(trim($generated_description));
+            
             error_log('WP Image Descriptions: Generated description: ' . substr($generated_description, 0, 100) . '...');
             
             // Update job with success
