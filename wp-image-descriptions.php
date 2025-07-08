@@ -14,6 +14,7 @@
  * Tested up to: 6.4
  * Requires PHP: 7.4
  * Network: false
+ * Update URI: https://github.com/your-username/wp-image-descriptions
  */
 
 // Prevent direct access
@@ -42,6 +43,7 @@ class WP_Image_Descriptions {
      * Plugin components
      */
     private $plugin_core;
+    private $plugin_updater;
     
     /**
      * Get single instance
@@ -73,6 +75,11 @@ class WP_Image_Descriptions {
             $this->plugin_core->init();
         }
         
+        // Initialize updater
+        if (class_exists('WP_Image_Descriptions_Plugin_Updater')) {
+            $this->plugin_updater = new WP_Image_Descriptions_Plugin_Updater(__FILE__);
+        }
+        
         // Register activation/deactivation hooks
         register_activation_hook(__FILE__, array($this, 'activate'));
         register_deactivation_hook(__FILE__, array($this, 'deactivate'));
@@ -98,6 +105,7 @@ class WP_Image_Descriptions {
         require_once WP_IMAGE_DESCRIPTIONS_INCLUDES_DIR . 'class-batch-manager.php';
         require_once WP_IMAGE_DESCRIPTIONS_INCLUDES_DIR . 'class-queue-processor.php';
         require_once WP_IMAGE_DESCRIPTIONS_INCLUDES_DIR . 'class-diagnostics.php';
+        require_once WP_IMAGE_DESCRIPTIONS_INCLUDES_DIR . 'class-plugin-updater.php';
     }
     
     /**
@@ -298,6 +306,42 @@ class WP_Image_Descriptions {
         
         // Store plugin version
         update_option('wp_image_descriptions_version', WP_IMAGE_DESCRIPTIONS_VERSION);
+    }
+    
+    /**
+     * Get plugin updater instance
+     */
+    public function get_updater() {
+        return $this->plugin_updater;
+    }
+    
+    /**
+     * Get plugin version info
+     */
+    public function get_version_info() {
+        if ($this->plugin_updater) {
+            return $this->plugin_updater->get_version_info();
+        }
+        
+        return array(
+            'version' => WP_IMAGE_DESCRIPTIONS_VERSION,
+            'type' => 'unknown'
+        );
+    }
+    
+    /**
+     * Force check for updates (admin only)
+     */
+    public function force_update_check() {
+        if (!current_user_can('manage_options')) {
+            return false;
+        }
+        
+        if ($this->plugin_updater) {
+            return $this->plugin_updater->force_update_check();
+        }
+        
+        return false;
     }
 }
 

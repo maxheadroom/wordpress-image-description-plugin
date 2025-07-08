@@ -140,11 +140,65 @@ class WP_Image_Descriptions_Diagnostics {
             }
         }
         
+        // Handle update check
+        if (isset($_POST['check_updates']) && wp_verify_nonce($_POST['_wpnonce'], 'check_updates')) {
+            $plugin_instance = WP_Image_Descriptions::get_instance();
+            $update_info = $plugin_instance->force_update_check();
+            if ($update_info) {
+                echo '<div class="notice notice-info"><p>Update check completed. Version ' . esc_html($update_info['version']) . ' is available.</p></div>';
+            } else {
+                echo '<div class="notice notice-success"><p>No updates available. You have the latest version.</p></div>';
+            }
+        }
+        
         $diagnostics = self::run_diagnostics();
         
         ?>
         <div class="wrap">
             <h1>WP Image Descriptions - Diagnostics</h1>
+            
+            <div style="background: #fff; padding: 20px; margin: 20px 0; border: 1px solid #ccc;">
+                <h2>Plugin Version Information</h2>
+                <?php
+                $plugin_instance = WP_Image_Descriptions::get_instance();
+                $version_info = $plugin_instance->get_version_info();
+                ?>
+                <table class="widefat">
+                    <tbody>
+                        <tr>
+                            <td><strong>Current Version</strong></td>
+                            <td><?php echo esc_html($version_info['version']); ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Version Type</strong></td>
+                            <td>
+                                <?php 
+                                echo esc_html(ucwords(str_replace('-', ' ', $version_info['type'])));
+                                if (!empty($version_info['prerelease'])) {
+                                    echo ' (' . esc_html($version_info['prerelease']) . ')';
+                                }
+                                ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Database Version</strong></td>
+                            <td><?php echo esc_html(get_option('wp_image_descriptions_db_version', 'Not set')); ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Plugin File Version</strong></td>
+                            <td><?php echo esc_html(WP_IMAGE_DESCRIPTIONS_VERSION); ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 15px;">
+                    <form method="post" action="" style="display: inline;">
+                        <?php wp_nonce_field('check_updates'); ?>
+                        <input type="submit" name="check_updates" class="button button-secondary" 
+                               value="Check for Updates">
+                    </form>
+                </div>
+            </div>
             
             <div style="background: #fff; padding: 20px; margin: 20px 0; border: 1px solid #ccc;">
                 <h2>Database Tables</h2>

@@ -25,6 +25,25 @@ An AI-powered WordPress plugin that automatically generates accessibility-focuse
 - **Database Tracking**: Complete audit trail of all processing jobs
 - **Security**: Proper capability checks, nonce verification, input sanitization
 
+## Updates
+
+### Automatic Updates
+The plugin includes automatic update functionality:
+- **Update Checks**: Automatically checks for updates every 12 hours
+- **Semantic Versioning**: Uses SemVer (1.0.0) for version management
+- **GitHub Integration**: Updates distributed via GitHub releases
+- **Database Migrations**: Automatic schema updates when needed
+
+### Manual Update Check
+- Go to **Tools → Image Descriptions Debug**
+- Click **"Check for Updates"** to force immediate check
+- View current version and update status
+
+### Version Types
+- **Stable** (1.0.0): Production-ready releases
+- **Beta** (1.1.0-beta.1): Feature-complete testing versions
+- **Alpha** (1.1.0-alpha.1): Early development versions
+
 ## Installation
 
 1. **Download** the latest plugin ZIP file
@@ -213,11 +232,18 @@ GPL v2 or later
 
 ## Changelog
 
-### Version 1.0.0
-- Initial release
-- Complete MVP functionality
-- Test and production modes
-- Comprehensive error handling
-- Multi-provider API support
-- Background processing
-- Accessibility-focused descriptions
+### Version 1.0.0 (Current)
+- **New**: Initial stable release with complete MVP functionality
+- **New**: Automatic update system with semantic versioning
+- **New**: Test and production processing modes
+- **New**: Comprehensive error handling and user feedback
+- **New**: Multi-provider API support (OpenAI, Anthropic, custom)
+- **New**: Background processing via WordPress cron
+- **New**: Accessibility-focused description generation
+- **New**: Database migration system for future updates
+- **New**: Comprehensive diagnostics and troubleshooting tools
+
+### Future Releases
+- **1.1.0**: Enhanced AI provider support, bulk editing improvements
+- **1.2.0**: Performance optimizations, caching system
+- **2.0.0**: Major UI overhaul, new API architecture
