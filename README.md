@@ -232,7 +232,15 @@ GPL v2 or later
 
 ## Changelog
 
-### Version 1.0.2 (Current)
+### Version 1.0.3 (Current)
+- **Fixed**: Apply descriptions now properly redirects to Media Library instead of showing empty page
+- **Enhanced**: Better success messages with celebration emoji and accessibility notes
+- **Improved**: Comprehensive logging for apply descriptions process
+- **Added**: Fallback JavaScript redirect if headers are already sent
+- **Enhanced**: Error reporting shows count of failed applications
+- **Improved**: More detailed feedback about what was accomplished
+
+### Version 1.0.2
 - **Fixed**: Test mode now properly displays results page after processing completes
 - **Fixed**: Auto-refresh logic improved to detect completion more accurately
 - **Fixed**: Results page now uses fresh data from database instead of cached data
@@ -260,6 +268,6 @@ GPL v2 or later
 - **New**: Comprehensive diagnostics and troubleshooting tools
 
 ### Future Releases
-- **1.3.0**: Enhanced AI provider support, bulk editing improvements
-- **1.4.0**: Performance optimizations, caching system
+- **1.4.0**: Enhanced AI provider support, bulk editing improvements
+- **1.5.0**: Performance optimizations, caching system
 - **2.0.0**: Major UI overhaul, new API architecture

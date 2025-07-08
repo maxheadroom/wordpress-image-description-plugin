@@ -334,13 +334,27 @@ class WP_Image_Descriptions_Media_Library {
                 echo '<p><strong>' . esc_html__('Image Descriptions:', 'wp-image-descriptions') . '</strong> ';
                 if ($descriptions_applied > 0) {
                     echo sprintf(
-                        esc_html__('Successfully generated and applied descriptions for %d images! Your images are now more accessible.', 'wp-image-descriptions'),
+                        esc_html__('🎉 Success! Generated and applied descriptions for %d images! Your images are now more accessible.', 'wp-image-descriptions'),
                         $descriptions_applied
                     );
+                    
+                    // Add additional info about what was accomplished
+                    echo '<br><small>' . esc_html__('Alt text has been added to improve accessibility for screen readers and SEO.', 'wp-image-descriptions') . '</small>';
                 } else {
                     echo esc_html__('Processing completed successfully!', 'wp-image-descriptions');
                 }
                 echo '</p>';
+                
+                // Show error count if any
+                if (isset($_GET['apply_errors']) && intval($_GET['apply_errors']) > 0) {
+                    $error_count = intval($_GET['apply_errors']);
+                    echo '<p style="color: #856404;"><strong>' . esc_html__('Note:', 'wp-image-descriptions') . '</strong> ';
+                    echo sprintf(
+                        esc_html__('%d images had errors during processing. Check the error logs for details.', 'wp-image-descriptions'),
+                        $error_count
+                    ) . '</p>';
+                }
+                
                 echo '</div>';
                 break;
                 

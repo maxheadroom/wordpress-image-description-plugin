@@ -744,11 +744,13 @@ class WP_Image_Descriptions_Preview_Page {
         if ($_POST['action'] === 'apply_descriptions') {
             $descriptions = isset($_POST['descriptions']) ? $_POST['descriptions'] : array();
             
+            error_log('WP Image Descriptions: Applying descriptions for batch ' . $batch_id . ' with ' . count($descriptions) . ' descriptions');
+            
             if (empty($descriptions)) {
-                add_action('admin_notices', function() {
-                    echo '<div class="notice notice-warning"><p>' . esc_html__('No descriptions to apply.', 'wp-image-descriptions') . '</p></div>';
-                });
-                return;
+                error_log('WP Image Descriptions: No descriptions to apply, redirecting back to preview');
+                $redirect_url = admin_url('admin.php?page=wp-image-descriptions-preview&batch_id=' . urlencode($batch_id) . '&message=no_descriptions');
+                wp_redirect($redirect_url);
+                exit;
             }
             
             $applied_count = 0;
@@ -762,8 +764,10 @@ class WP_Image_Descriptions_Preview_Page {
                     $result = update_post_meta($attachment_id, '_wp_attachment_image_alt', $description);
                     if ($result !== false) {
                         $applied_count++;
+                        error_log('WP Image Descriptions: Applied description to attachment ' . $attachment_id);
                     } else {
                         $errors[] = sprintf(__('Failed to update attachment %d', 'wp-image-descriptions'), $attachment_id);
+                        error_log('WP Image Descriptions: Failed to update attachment ' . $attachment_id);
                     }
                 }
             }
@@ -771,7 +775,7 @@ class WP_Image_Descriptions_Preview_Page {
             // Update batch status
             global $wpdb;
             $batch_table = $wpdb->prefix . 'image_description_batches';
-            $wpdb->update(
+            $update_result = $wpdb->update(
                 $batch_table,
                 array('status' => 'applied', 'updated_at' => current_time('mysql')),
                 array('batch_id' => $batch_id),
@@ -779,10 +783,33 @@ class WP_Image_Descriptions_Preview_Page {
                 array('%s')
             );
             
-            // Redirect with success message
-            $redirect_url = admin_url('upload.php?mode=list&wp_image_descriptions_message=batch_completed&descriptions_applied=' . $applied_count);
-            wp_redirect($redirect_url);
-            exit;
+            error_log('WP Image Descriptions: Updated batch status, result: ' . ($update_result !== false ? 'success' : 'failed'));
+            error_log('WP Image Descriptions: Applied ' . $applied_count . ' descriptions successfully');
+            
+            // Build redirect URL
+            $redirect_url = admin_url('upload.php');
+            $redirect_url = add_query_arg('mode', 'list', $redirect_url);
+            $redirect_url = add_query_arg('wp_image_descriptions_message', 'batch_completed', $redirect_url);
+            $redirect_url = add_query_arg('descriptions_applied', $applied_count, $redirect_url);
+            
+            if (!empty($errors)) {
+                $redirect_url = add_query_arg('apply_errors', count($errors), $redirect_url);
+                error_log('WP Image Descriptions: Errors applying descriptions: ' . implode('; ', $errors));
+            }
+            
+            error_log('WP Image Descriptions: Redirecting to: ' . $redirect_url);
+            
+            // Ensure no output before redirect
+            if (!headers_sent()) {
+                wp_redirect($redirect_url);
+                exit;
+            } else {
+                error_log('WP Image Descriptions: Headers already sent, cannot redirect');
+                // Fallback: JavaScript redirect
+                echo '<script>window.location.href = "' . esc_js($redirect_url) . '";</script>';
+                echo '<p>Redirecting... <a href="' . esc_url($redirect_url) . '">Click here if not redirected automatically</a></p>';
+                exit;
+            }
         }
     }
 }
