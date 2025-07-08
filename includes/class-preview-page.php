@@ -75,6 +75,10 @@ class WP_Image_Descriptions_Preview_Page {
             $redirect_url = admin_url('upload.php?mode=list&wp_image_descriptions_message=batch_completed&descriptions_applied=' . $batch->completed_jobs);
             wp_redirect($redirect_url);
             exit;
+        } elseif ($batch->status === 'completed') {
+            // Processing is done but not yet applied - this shouldn't happen in production mode
+            // but let's handle it gracefully by showing results
+            $batch->status = 'show_results';
         }
         
         ?>
@@ -86,16 +90,21 @@ class WP_Image_Descriptions_Preview_Page {
             <div style="background: #fff; padding: 20px; border: 1px solid #ddd; margin-bottom: 20px;">
                 <h2><?php esc_html_e('Processing Status', 'wp-image-descriptions'); ?></h2>
                 
-                <?php if ($batch->status === 'pending' || $batch->status === 'processing'): ?>
+                <?php
+                // Get real-time progress from database
+                $batch_manager = new WP_Image_Descriptions_Batch_Manager();
+                $current_progress = $batch_manager->get_batch_progress($batch_id);
+                
+                $total = $current_progress['total'];
+                $completed = $current_progress['completed'];
+                $failed = $current_progress['failed'];
+                $processed = $completed + $failed;
+                $percentage = $current_progress['percentage'];
+                $current_status = $current_progress['status'];
+                ?>
+                
+                <?php if ($current_status === 'pending' || $current_status === 'processing'): ?>
                     <p><?php esc_html_e('Your images are being processed and descriptions will be applied automatically when complete.', 'wp-image-descriptions'); ?></p>
-                    
-                    <?php
-                    $total = intval($batch->total_jobs);
-                    $completed = intval($batch->completed_jobs);
-                    $failed = intval($batch->failed_jobs);
-                    $processed = $completed + $failed;
-                    $percentage = $total > 0 ? round(($processed / $total) * 100, 1) : 0;
-                    ?>
                     
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: <?php echo esc_attr($percentage); ?>%;"></div>
@@ -117,12 +126,32 @@ class WP_Image_Descriptions_Preview_Page {
                         </p>
                     <?php endif; ?>
                     
-                <?php elseif ($batch->status === 'completed'): ?>
+                <?php elseif ($current_status === 'completed'): ?>
                     <p style="color: #46b450; font-weight: bold;">
                         <?php esc_html_e('✅ Processing complete! Applying descriptions to your media library...', 'wp-image-descriptions'); ?>
                     </p>
                     
-                <?php elseif ($batch->status === 'failed'): ?>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 100%;"></div>
+                    </div>
+                    
+                    <p style="text-align: center; margin-top: 10px;">
+                        <strong><?php echo sprintf(__('Completed: %d of %d images (100%%)', 'wp-image-descriptions'), $total, $total); ?></strong>
+                    </p>
+                    
+                <?php elseif ($current_status === 'applied'): ?>
+                    <p style="color: #46b450; font-weight: bold;">
+                        <?php esc_html_e('✅ All done! Descriptions have been applied to your media library.', 'wp-image-descriptions'); ?>
+                    </p>
+                    
+                    <script>
+                    // Redirect to media library after showing success message
+                    setTimeout(function() {
+                        window.location.href = '<?php echo esc_js(admin_url('upload.php?mode=list&wp_image_descriptions_message=batch_completed&descriptions_applied=' . $completed)); ?>';
+                    }, 2000);
+                    </script>
+                    
+                <?php elseif ($current_status === 'failed'): ?>
                     <p style="color: #dc3232; font-weight: bold;">
                         <?php esc_html_e('❌ Processing failed. Please try again or check your API configuration.', 'wp-image-descriptions'); ?>
                     </p>
@@ -201,11 +230,38 @@ class WP_Image_Descriptions_Preview_Page {
         
         <script>
         // Auto-refresh for pending/processing batches
-        <?php if (in_array($batch->status, ['pending', 'processing', 'completed'])): ?>
-        setTimeout(function() {
-            location.reload();
-        }, 3000); // Refresh every 3 seconds for production mode
-        <?php endif; ?>
+        <?php 
+        // Get current status for JavaScript
+        $batch_manager = new WP_Image_Descriptions_Batch_Manager();
+        $current_progress = $batch_manager->get_batch_progress($batch_id);
+        $js_status = $current_progress['status'];
+        $js_percentage = $current_progress['percentage'];
+        ?>
+        
+        var currentStatus = '<?php echo esc_js($js_status); ?>';
+        var currentPercentage = <?php echo intval($js_percentage); ?>;
+        
+        console.log('Current batch status:', currentStatus, 'Progress:', currentPercentage + '%');
+        
+        // Only refresh if still processing
+        if (currentStatus === 'pending' || currentStatus === 'processing') {
+            console.log('Batch still processing, will refresh in 3 seconds');
+            setTimeout(function() {
+                location.reload();
+            }, 3000);
+        } else if (currentStatus === 'completed') {
+            console.log('Batch completed, will refresh once more to apply results');
+            setTimeout(function() {
+                location.reload();
+            }, 2000);
+        } else if (currentStatus === 'applied') {
+            console.log('Batch applied, redirecting to media library');
+            setTimeout(function() {
+                window.location.href = '<?php echo esc_js(admin_url('upload.php?mode=list&wp_image_descriptions_message=batch_completed&descriptions_applied=' . $current_progress['completed'])); ?>';
+            }, 2000);
+        } else {
+            console.log('Batch processing finished with status:', currentStatus);
+        }
         </script>
         <?php
     }
@@ -253,7 +309,13 @@ class WP_Image_Descriptions_Preview_Page {
             
             <?php $this->display_batch_info($batch); ?>
             
-            <?php if ($batch->status === 'pending'): ?>
+            <?php 
+            // Get real-time batch progress to determine what to show
+            $batch_manager = new WP_Image_Descriptions_Batch_Manager();
+            $current_progress = $batch_manager->get_batch_progress($batch_id);
+            
+            // Show processing status if still pending/processing, otherwise show results
+            if ($current_progress['status'] === 'pending' || $current_progress['status'] === 'processing'): ?>
                 <?php $this->display_processing_status($batch_id); ?>
             <?php else: ?>
                 <?php $this->display_batch_results($batch, $jobs); ?>
@@ -338,11 +400,43 @@ class WP_Image_Descriptions_Preview_Page {
         </style>
         
         <script>
-        // Auto-refresh for pending batches
-        <?php if ($batch->status === 'pending'): ?>
-        setTimeout(function() {
-            location.reload();
-        }, 5000); // Refresh every 5 seconds
+        // Auto-refresh logic for test mode
+        <?php
+        // Get real-time progress for JavaScript
+        $batch_manager = new WP_Image_Descriptions_Batch_Manager();
+        $current_progress = $batch_manager->get_batch_progress($batch_id);
+        $is_processing_view = ($current_progress['status'] === 'pending' || $current_progress['status'] === 'processing');
+        ?>
+        
+        <?php if ($is_processing_view): ?>
+            var currentStatus = '<?php echo esc_js($current_progress['status']); ?>';
+            var currentPercentage = <?php echo intval($current_progress['percentage']); ?>;
+            var totalJobs = <?php echo intval($current_progress['total']); ?>;
+            var completedJobs = <?php echo intval($current_progress['completed']); ?>;
+            var failedJobs = <?php echo intval($current_progress['failed']); ?>;
+            var processedJobs = completedJobs + failedJobs;
+            
+            console.log('Test mode - Status:', currentStatus, 'Progress:', currentPercentage + '%', 'Processed:', processedJobs + '/' + totalJobs);
+            
+            // Check if processing is actually complete
+            if (processedJobs >= totalJobs && totalJobs > 0) {
+                console.log('Test mode - All jobs processed, refreshing to show results');
+                setTimeout(function() {
+                    location.reload();
+                }, 500); // Quick refresh to show results
+            } else if (currentStatus === 'pending' || currentStatus === 'processing') {
+                console.log('Test mode - Still processing, will refresh in 4 seconds');
+                setTimeout(function() {
+                    location.reload();
+                }, 4000); // Refresh every 4 seconds
+            } else {
+                console.log('Test mode - Status changed to:', currentStatus, 'refreshing to show results');
+                setTimeout(function() {
+                    location.reload();
+                }, 1000);
+            }
+        <?php else: ?>
+            console.log('Test mode - Showing results page, no auto-refresh needed');
         <?php endif; ?>
         </script>
         <?php
@@ -395,18 +489,59 @@ class WP_Image_Descriptions_Preview_Page {
      * Display processing status for pending batches
      */
     private function display_processing_status($batch_id) {
+        // Get real-time progress
+        $batch_manager = new WP_Image_Descriptions_Batch_Manager();
+        $progress = $batch_manager->get_batch_progress($batch_id);
+        
         ?>
         <div style="background: #fff; padding: 20px; border: 1px solid #ddd; margin-bottom: 20px;">
             <h2><?php esc_html_e('Processing Status', 'wp-image-descriptions'); ?></h2>
-            <p><?php esc_html_e('Your images are being processed. This page will automatically refresh to show results.', 'wp-image-descriptions'); ?></p>
             
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: 0%;"></div>
-            </div>
-            
-            <p style="text-align: center; margin-top: 10px;">
-                <strong><?php esc_html_e('Processing images...', 'wp-image-descriptions'); ?></strong>
-            </p>
+            <?php if ($progress['status'] === 'pending' || $progress['status'] === 'processing'): ?>
+                <p><?php esc_html_e('Your images are being processed. This page will automatically refresh to show results.', 'wp-image-descriptions'); ?></p>
+                
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: <?php echo esc_attr($progress['percentage']); ?>%;"></div>
+                </div>
+                
+                <p style="text-align: center; margin-top: 10px;">
+                    <strong>
+                        <?php if ($progress['processed'] > 0): ?>
+                            <?php echo sprintf(__('Processing: %d of %d images (%s%%)', 'wp-image-descriptions'), $progress['processed'], $progress['total'], $progress['percentage']); ?>
+                        <?php else: ?>
+                            <?php esc_html_e('Processing images...', 'wp-image-descriptions'); ?>
+                        <?php endif; ?>
+                    </strong>
+                </p>
+                
+                <?php if ($progress['completed'] > 0): ?>
+                    <p style="text-align: center; color: #46b450;">
+                        <?php echo sprintf(__('✅ %d descriptions generated', 'wp-image-descriptions'), $progress['completed']); ?>
+                    </p>
+                <?php endif; ?>
+                
+                <?php if ($progress['failed'] > 0): ?>
+                    <p style="text-align: center; color: #dc3232;">
+                        <?php echo sprintf(__('❌ %d images failed', 'wp-image-descriptions'), $progress['failed']); ?>
+                    </p>
+                <?php endif; ?>
+                
+            <?php else: ?>
+                <p style="color: #46b450; font-weight: bold;">
+                    <?php esc_html_e('✅ Processing complete! Loading results...', 'wp-image-descriptions'); ?>
+                </p>
+                
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 100%;"></div>
+                </div>
+                
+                <script>
+                // Refresh immediately to show results
+                setTimeout(function() {
+                    location.reload();
+                }, 1000);
+                </script>
+            <?php endif; ?>
             
             <div style="text-align: center; margin-top: 20px;">
                 <button type="button" class="button" onclick="location.reload();">
@@ -435,6 +570,14 @@ class WP_Image_Descriptions_Preview_Page {
      * Display batch results
      */
     private function display_batch_results($batch, $jobs) {
+        // Get fresh job data from database to ensure we have the latest results
+        $batch_manager = new WP_Image_Descriptions_Batch_Manager();
+        $fresh_batch_details = $batch_manager->get_batch_details($batch->batch_id);
+        
+        if ($fresh_batch_details) {
+            $jobs = $fresh_batch_details['jobs']; // Use fresh job data
+        }
+        
         $completed_jobs = array_filter($jobs, function($job) {
             return $job->status === 'completed' && !empty($job->generated_description);
         });
@@ -448,6 +591,15 @@ class WP_Image_Descriptions_Preview_Page {
             <h2><?php esc_html_e('Generated Descriptions', 'wp-image-descriptions'); ?></h2>
             
             <?php if (!empty($completed_jobs)): ?>
+                <div style="background: #d4edda; padding: 15px; margin-bottom: 20px; border-left: 4px solid #28a745;">
+                    <h3 style="margin-top: 0; color: #155724;">
+                        <?php echo sprintf(__('✅ Success! Generated %d descriptions', 'wp-image-descriptions'), count($completed_jobs)); ?>
+                    </h3>
+                    <p style="margin-bottom: 0; color: #155724;">
+                        <?php esc_html_e('Review the descriptions below and edit them if needed, then click "Apply Descriptions" to save them to your media library.', 'wp-image-descriptions'); ?>
+                    </p>
+                </div>
+                
                 <form method="post" action="">
                     <?php wp_nonce_field('apply_descriptions', 'apply_descriptions_nonce'); ?>
                     
@@ -469,7 +621,12 @@ class WP_Image_Descriptions_Preview_Page {
             
             <?php if (!empty($failed_jobs)): ?>
                 <div style="margin-top: 30px;">
-                    <h3><?php esc_html_e('Failed Images', 'wp-image-descriptions'); ?></h3>
+                    <h3 style="color: #dc3232;"><?php esc_html_e('Failed Images', 'wp-image-descriptions'); ?></h3>
+                    <div style="background: #f8d7da; padding: 15px; margin-bottom: 20px; border-left: 4px solid #dc3545;">
+                        <p style="margin: 0; color: #721c24;">
+                            <?php echo sprintf(__('❌ %d images failed to process. See details below.', 'wp-image-descriptions'), count($failed_jobs)); ?>
+                        </p>
+                    </div>
                     <?php foreach ($failed_jobs as $job): ?>
                         <?php $this->render_failed_image($job); ?>
                     <?php endforeach; ?>
@@ -478,10 +635,14 @@ class WP_Image_Descriptions_Preview_Page {
             
             <?php if (empty($completed_jobs) && empty($failed_jobs)): ?>
                 <div style="text-align: center; padding: 40px;">
-                    <p><?php esc_html_e('No results available yet. The batch may still be processing.', 'wp-image-descriptions'); ?></p>
-                    <button type="button" class="button" onclick="location.reload();">
+                    <h3><?php esc_html_e('No Results Available', 'wp-image-descriptions'); ?></h3>
+                    <p><?php esc_html_e('The batch processing may still be in progress or there may have been an issue.', 'wp-image-descriptions'); ?></p>
+                    <button type="button" class="button button-primary" onclick="location.reload();">
                         <?php esc_html_e('Refresh Page', 'wp-image-descriptions'); ?>
                     </button>
+                    <a href="<?php echo esc_url(admin_url('upload.php?mode=list')); ?>" class="button" style="margin-left: 10px;">
+                        <?php esc_html_e('Back to Media Library', 'wp-image-descriptions'); ?>
+                    </a>
                 </div>
             <?php endif; ?>
         </div>

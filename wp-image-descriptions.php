@@ -3,7 +3,7 @@
  * Plugin Name: WordPress Image Descriptions
  * Plugin URI: https://github.com/your-username/wp-image-descriptions
  * Description: Generate AI-powered image descriptions for accessibility using OpenAI-compatible APIs. Helps create alt text for visually impaired users.
- * Version: 1.0.0
+ * Version: 1.0.2
  * Author: Your Name
  * Author URI: https://your-website.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('WP_IMAGE_DESCRIPTIONS_VERSION', '1.0.0');
+define('WP_IMAGE_DESCRIPTIONS_VERSION', '1.0.2');
 define('WP_IMAGE_DESCRIPTIONS_PLUGIN_FILE', __FILE__);
 define('WP_IMAGE_DESCRIPTIONS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WP_IMAGE_DESCRIPTIONS_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -348,9 +348,22 @@ class WP_Image_Descriptions {
 /**
  * Initialize the plugin
  */
-function wp_image_descriptions_init() {
-    return WP_Image_Descriptions::get_instance();
+if (!function_exists('wp_image_descriptions_init')) {
+    function wp_image_descriptions_init() {
+        return WP_Image_Descriptions::get_instance();
+    }
+    
+    // Start the plugin
+    wp_image_descriptions_init();
+} else {
+    // If function already exists, it means another version is loaded
+    // Add admin notice about multiple versions
+    add_action('admin_notices', function() {
+        if (current_user_can('manage_options')) {
+            echo '<div class="notice notice-error">';
+            echo '<p><strong>WordPress Image Descriptions:</strong> Multiple plugin versions detected. Please deactivate and delete the old version before activating the new one.</p>';
+            echo '<p><a href="' . admin_url('plugins.php') . '" class="button">Go to Plugins Page</a></p>';
+            echo '</div>';
+        }
+    });
 }
-
-// Start the plugin
-wp_image_descriptions_init();

@@ -159,13 +159,19 @@ If database changes are needed:
 
 ## Version History
 
-### 1.0.0 (Current)
+### 1.0.1 (Current)
+- Fixed auto-refresh logic on processing pages
+- Improved real-time status detection
+- Enhanced user experience during batch processing
+- Bug fix release (patch version)
+
+### 1.0.0
 - Initial stable release
 - Complete MVP functionality
 - Automatic update system
 - Semantic versioning implementation
 
 ### Future Versions
-- **1.1.0**: Enhanced AI provider support, bulk editing improvements
-- **1.2.0**: Performance optimizations, caching system
+- **1.2.0**: Enhanced AI provider support, bulk editing improvements
+- **1.3.0**: Performance optimizations, caching system
 - **2.0.0**: Major UI overhaul, new API architecture

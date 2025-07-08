@@ -232,7 +232,23 @@ GPL v2 or later
 
 ## Changelog
 
-### Version 1.0.0 (Current)
+### Version 1.0.2 (Current)
+- **Fixed**: Test mode now properly displays results page after processing completes
+- **Fixed**: Auto-refresh logic improved to detect completion more accurately
+- **Fixed**: Results page now uses fresh data from database instead of cached data
+- **Improved**: Better status detection between processing and results display
+- **Enhanced**: More aggressive completion detection in JavaScript auto-refresh
+- **Added**: Visual success/failure indicators on results page
+
+### Version 1.0.1
+- **Fixed**: Auto-refresh logic on processing pages now properly detects completion
+- **Fixed**: Processing pages no longer get stuck showing "PROCESSING" status
+- **Improved**: Real-time progress updates from database instead of cached data
+- **Improved**: Smart auto-refresh that stops when processing is complete
+- **Added**: JavaScript console logging for debugging processing status
+- **Enhanced**: Better status transitions between processing and results pages
+
+### Version 1.0.0
 - **New**: Initial stable release with complete MVP functionality
 - **New**: Automatic update system with semantic versioning
 - **New**: Test and production processing modes
@@ -244,6 +260,6 @@ GPL v2 or later
 - **New**: Comprehensive diagnostics and troubleshooting tools
 
 ### Future Releases
-- **1.1.0**: Enhanced AI provider support, bulk editing improvements
-- **1.2.0**: Performance optimizations, caching system
+- **1.3.0**: Enhanced AI provider support, bulk editing improvements
+- **1.4.0**: Performance optimizations, caching system
 - **2.0.0**: Major UI overhaul, new API architecture
