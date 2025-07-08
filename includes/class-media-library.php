@@ -118,6 +118,13 @@ class WP_Image_Descriptions_Media_Library {
         
         // Redirect based on mode
         if ($mode === 'test') {
+            // For test mode, start processing in background and redirect to preview
+            $queue_processor = new WP_Image_Descriptions_Queue_Processor();
+            
+            // Start processing asynchronously (in MVP this is actually synchronous)
+            // In a separate request to avoid timeout issues
+            wp_schedule_single_event(time() + 1, 'wp_image_descriptions_process_batch', array($result['batch_id']));
+            
             // Redirect to preview page
             $preview_url = admin_url('admin.php?page=wp-image-descriptions-preview&batch_id=' . $result['batch_id']);
             return $preview_url;

@@ -86,6 +86,9 @@ class WP_Image_Descriptions_Core {
         
         // General hooks
         add_action('wp_loaded', array($this, 'check_requirements'));
+        
+        // Cron hooks for batch processing
+        add_action('wp_image_descriptions_process_batch', array($this, 'cron_process_batch'));
     }
     
     /**
@@ -248,6 +251,20 @@ class WP_Image_Descriptions_Core {
         echo '<div class="notice notice-error">';
         echo '<p>' . esc_html__('WP Image Descriptions requires WordPress HTTP API functions to be available.', 'wp-image-descriptions') . '</p>';
         echo '</div>';
+    }
+    
+    /**
+     * Cron handler for batch processing
+     */
+    public function cron_process_batch($batch_id) {
+        error_log('WP Image Descriptions: Cron processing batch ' . $batch_id);
+        
+        if ($this->queue_processor) {
+            $result = $this->queue_processor->process_batch($batch_id);
+            error_log('WP Image Descriptions: Cron batch processing result: ' . print_r($result, true));
+        } else {
+            error_log('WP Image Descriptions: Queue processor not available for cron processing');
+        }
     }
     
     /**

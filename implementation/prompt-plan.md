@@ -6,7 +6,7 @@
 - [x] Prompt 3: Implement OpenAI API client
 - [x] Prompt 4: Add bulk action to Media Library
 - [x] Prompt 5: Create basic batch processing system
-- [ ] Prompt 6: Implement image description generation
+- [x] Prompt 6: Implement image description generation
 - [x] Prompt 7: Add test mode preview page
 - [ ] Prompt 8: Implement production mode (apply descriptions)
 - [ ] Prompt 9: Add basic error handling and user feedback

@@ -30,9 +30,60 @@ class WP_Image_Descriptions_API_Client {
      */
     private function get_settings() {
         if ($this->settings === null) {
-            $this->settings = new WP_Image_Descriptions_Settings();
+            // Check if Settings class is available
+            if (class_exists('WP_Image_Descriptions_Settings')) {
+                $this->settings = new WP_Image_Descriptions_Settings();
+            } else {
+                // Fallback: create a simple settings object that reads directly from options
+                $this->settings = new stdClass();
+                $this->settings->get_setting = function($key, $default = null) {
+                    $settings = get_option('wp_image_descriptions_settings', array());
+                    
+                    // Support nested keys like 'api.endpoint'
+                    $keys = explode('.', $key);
+                    $value = $settings;
+                    
+                    foreach ($keys as $k) {
+                        if (isset($value[$k])) {
+                            $value = $value[$k];
+                        } else {
+                            return $default;
+                        }
+                    }
+                    
+                    return $value;
+                };
+            }
         }
         return $this->settings;
+    }
+    
+    /**
+     * Get setting value (helper method)
+     */
+    private function get_setting($key, $default = null) {
+        $settings = $this->get_settings();
+        
+        if (is_object($settings) && method_exists($settings, 'get_setting')) {
+            return $settings->get_setting($key, $default);
+        } elseif (is_object($settings) && isset($settings->get_setting) && is_callable($settings->get_setting)) {
+            return call_user_func($settings->get_setting, $key, $default);
+        } else {
+            // Direct fallback to WordPress options
+            $all_settings = get_option('wp_image_descriptions_settings', array());
+            $keys = explode('.', $key);
+            $value = $all_settings;
+            
+            foreach ($keys as $k) {
+                if (isset($value[$k])) {
+                    $value = $value[$k];
+                } else {
+                    return $default;
+                }
+            }
+            
+            return $value;
+        }
     }
     
     /**
@@ -41,7 +92,7 @@ class WP_Image_Descriptions_API_Client {
     public function generate_description($image_url, $prompt_template = null) {
         // Get prompt template
         if (empty($prompt_template)) {
-            $prompt_template = $this->get_settings()->get_setting('prompts.default_template', 
+            $prompt_template = $this->get_setting('prompts.default_template', 
                 'Describe this image for accessibility purposes. Focus on the main subject, important details, and any text visible in the image. Keep the description concise but informative.'
             );
         }
@@ -86,8 +137,8 @@ class WP_Image_Descriptions_API_Client {
      */
     public function test_connection() {
         // Check if API settings are configured
-        $api_key = $this->get_settings()->get_setting('api.api_key', '');
-        $endpoint = $this->get_settings()->get_setting('api.endpoint', '');
+        $api_key = $this->get_setting('api.api_key', '');
+        $endpoint = $this->get_setting('api.endpoint', '');
         
         if (empty($api_key) || empty($endpoint)) {
             return array(
@@ -218,9 +269,9 @@ class WP_Image_Descriptions_API_Client {
      */
     private function prepare_request($image_base64, $prompt_template) {
         // Get API settings
-        $model = $this->get_settings()->get_setting('api.model', 'gpt-4-vision-preview');
-        $max_tokens = $this->get_settings()->get_setting('api.max_tokens', 300);
-        $temperature = $this->get_settings()->get_setting('api.temperature', 0.7);
+        $model = $this->get_setting('api.model', 'gpt-4-vision-preview');
+        $max_tokens = $this->get_setting('api.max_tokens', 300);
+        $temperature = $this->get_setting('api.temperature', 0.7);
         
         // Determine image format from base64 data
         $image_info = getimagesizefromstring(base64_decode($image_base64));
@@ -297,9 +348,9 @@ class WP_Image_Descriptions_API_Client {
      */
     private function make_api_request($request_body) {
         // Get API settings
-        $endpoint = $this->get_settings()->get_setting('api.endpoint', '');
-        $api_key = $this->get_settings()->get_setting('api.api_key', '');
-        $timeout = $this->get_settings()->get_setting('processing.timeout', 30);
+        $endpoint = $this->get_setting('api.endpoint', '');
+        $api_key = $this->get_setting('api.api_key', '');
+        $timeout = $this->get_setting('processing.timeout', 30);
         
         // Prepare headers
         $headers = array(
@@ -449,13 +500,13 @@ class WP_Image_Descriptions_API_Client {
      * Get rate limit delay
      */
     public function get_rate_limit_delay() {
-        return $this->get_settings()->get_setting('processing.rate_limit_delay', 1);
+        return $this->get_setting('processing.rate_limit_delay', 1);
     }
     
     /**
      * Get max retries
      */
     public function get_max_retries() {
-        return $this->get_settings()->get_setting('processing.max_retries', 3);
+        return $this->get_setting('processing.max_retries', 3);
     }
 }
