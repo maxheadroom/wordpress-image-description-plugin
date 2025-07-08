@@ -38,6 +38,15 @@ class WP_Image_Descriptions_Settings {
             $this->page_slug,
             array($this, 'render_settings_page')
         );
+        
+        // Add diagnostics page
+        add_management_page(
+            __('Image Descriptions Diagnostics', 'wp-image-descriptions'),
+            __('Image Descriptions Debug', 'wp-image-descriptions'),
+            'manage_options',
+            'wp-image-descriptions-diagnostics',
+            array('WP_Image_Descriptions_Diagnostics', 'display_diagnostics_page')
+        );
     }
     
     /**
@@ -243,21 +252,20 @@ class WP_Image_Descriptions_Settings {
      */
     public function render_model_field() {
         $value = $this->get_setting('api.model', 'gpt-4-vision-preview');
-        $models = array(
-            'gpt-4-vision-preview' => 'GPT-4 Vision Preview',
-            'gpt-4o' => 'GPT-4o',
-            'gpt-4o-mini' => 'GPT-4o Mini',
-            'claude-3-opus' => 'Claude 3 Opus',
-            'claude-3-sonnet' => 'Claude 3 Sonnet',
-            'claude-3-haiku' => 'Claude 3 Haiku'
-        );
         
-        echo '<select name="' . $this->option_name . '[api][model]" class="regular-text">';
-        foreach ($models as $model_id => $model_name) {
-            echo '<option value="' . esc_attr($model_id) . '"' . selected($value, $model_id, false) . '>' . esc_html($model_name) . '</option>';
-        }
-        echo '</select>';
-        echo '<p class="description">' . esc_html__('The AI model to use for generating descriptions.', 'wp-image-descriptions') . '</p>';
+        echo '<input type="text" name="' . $this->option_name . '[api][model]" value="' . esc_attr($value) . '" class="regular-text" required>';
+        echo '<p class="description">' . esc_html__('The AI model to use for generating descriptions. Examples: gpt-4-vision-preview, gpt-4o, gpt-4o-mini, claude-3-sonnet-20240229, claude-3-haiku-20240307', 'wp-image-descriptions') . '</p>';
+        
+        // Add some common examples as suggestions
+        echo '<div style="margin-top: 8px; font-size: 12px; color: #666;">';
+        echo '<strong>' . esc_html__('Popular models:', 'wp-image-descriptions') . '</strong><br>';
+        echo '<code style="margin-right: 10px;">gpt-4-vision-preview</code>';
+        echo '<code style="margin-right: 10px;">gpt-4o</code>';
+        echo '<code style="margin-right: 10px;">gpt-4o-mini</code><br>';
+        echo '<code style="margin-right: 10px;">claude-3-opus-20240229</code>';
+        echo '<code style="margin-right: 10px;">claude-3-sonnet-20240229</code>';
+        echo '<code style="margin-right: 10px;">claude-3-haiku-20240307</code>';
+        echo '</div>';
     }
     
     /**

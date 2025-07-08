@@ -65,12 +65,10 @@ class WP_Image_Descriptions_Core {
                 add_action('admin_init', array($this->settings, 'register_settings'));
             }
             
-            // Media library hooks
+            // Media library hooks - now handled by the Media Library class itself
             if ($this->media_library) {
-                add_filter('bulk_actions-upload', array($this->media_library, 'add_bulk_actions'));
-                add_filter('handle_bulk_actions-upload', array($this->media_library, 'handle_bulk_actions'), 10, 3);
-                add_filter('manage_media_columns', array($this->media_library, 'add_media_columns'));
-                add_action('manage_media_custom_column', array($this->media_library, 'display_media_column'), 10, 2);
+                // Only register admin notices here, other hooks are handled by the class
+                add_action('admin_notices', array($this->media_library, 'display_bulk_action_notices'));
             }
             
             // Preview page hooks
@@ -130,6 +128,17 @@ class WP_Image_Descriptions_Core {
      * Display admin notices
      */
     public function display_admin_notices() {
+        // Debug notice (remove after testing)
+        if (isset($_GET['page']) && $_GET['page'] === 'wp-image-descriptions-debug') {
+            echo '<div class="notice notice-info">';
+            echo '<p><strong>WP Image Descriptions Debug Info:</strong></p>';
+            echo '<p>Plugin loaded: Yes</p>';
+            echo '<p>WordPress version: ' . get_bloginfo('version') . '</p>';
+            echo '<p>Current user can edit_posts: ' . (current_user_can('edit_posts') ? 'Yes' : 'No') . '</p>';
+            echo '<p>Media Library class loaded: ' . (class_exists('WP_Image_Descriptions_Media_Library') ? 'Yes' : 'No') . '</p>';
+            echo '</div>';
+        }
+        
         // Check for success/error messages in URL parameters
         if (isset($_GET['wp_image_descriptions_message'])) {
             $message_type = sanitize_text_field($_GET['wp_image_descriptions_message']);

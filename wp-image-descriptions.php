@@ -97,6 +97,7 @@ class WP_Image_Descriptions {
         require_once WP_IMAGE_DESCRIPTIONS_INCLUDES_DIR . 'class-api-client.php';
         require_once WP_IMAGE_DESCRIPTIONS_INCLUDES_DIR . 'class-batch-manager.php';
         require_once WP_IMAGE_DESCRIPTIONS_INCLUDES_DIR . 'class-queue-processor.php';
+        require_once WP_IMAGE_DESCRIPTIONS_INCLUDES_DIR . 'class-diagnostics.php';
     }
     
     /**
@@ -153,52 +154,82 @@ class WP_Image_Descriptions {
         
         $charset_collate = $wpdb->get_charset_collate();
         
-        // Batches table
-        $batches_table = $wpdb->prefix . 'image_description_batches';
-        $batches_sql = "CREATE TABLE $batches_table (
-            id bigint(20) NOT NULL AUTO_INCREMENT,
-            batch_id varchar(255) NOT NULL UNIQUE,
-            user_id bigint(20) NOT NULL,
-            mode enum('test','production') DEFAULT 'test',
-            status enum('pending','processing','completed','cancelled','failed') DEFAULT 'pending',
-            total_jobs int(11) DEFAULT 0,
-            completed_jobs int(11) DEFAULT 0,
-            failed_jobs int(11) DEFAULT 0,
-            settings longtext,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY batch_id (batch_id),
-            KEY user_id (user_id),
-            KEY status (status)
-        ) $charset_collate;";
+        // Check current database version
+        $current_db_version = get_option('wp_image_descriptions_db_version', '0');
+        $target_db_version = '1.0.0';
         
-        // Jobs table
-        $jobs_table = $wpdb->prefix . 'image_description_jobs';
-        $jobs_sql = "CREATE TABLE $jobs_table (
-            id bigint(20) NOT NULL AUTO_INCREMENT,
-            batch_id varchar(255) NOT NULL,
-            attachment_id bigint(20) NOT NULL,
-            status enum('pending','processing','completed','failed','cancelled') DEFAULT 'pending',
-            generated_description text,
-            original_alt_text text,
-            error_message text,
-            retry_count int(11) DEFAULT 0,
-            processed_at datetime NULL,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY batch_id (batch_id),
-            KEY attachment_id (attachment_id),
-            KEY status (status)
-        ) $charset_collate;";
-        
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($batches_sql);
-        dbDelta($jobs_sql);
-        
-        // Store database version
-        update_option('wp_image_descriptions_db_version', '1.0.0');
+        // Only create/update tables if needed
+        if (version_compare($current_db_version, $target_db_version, '<')) {
+            
+            // Batches table
+            $batches_table = $wpdb->prefix . 'image_description_batches';
+            $batches_sql = "CREATE TABLE $batches_table (
+                id bigint(20) NOT NULL AUTO_INCREMENT,
+                batch_id varchar(255) NOT NULL,
+                user_id bigint(20) NOT NULL,
+                mode enum('test','production') DEFAULT 'test',
+                status enum('pending','processing','completed','cancelled','failed') DEFAULT 'pending',
+                total_jobs int(11) DEFAULT 0,
+                completed_jobs int(11) DEFAULT 0,
+                failed_jobs int(11) DEFAULT 0,
+                settings longtext,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY batch_id_unique (batch_id),
+                KEY user_id_idx (user_id),
+                KEY status_idx (status)
+            ) $charset_collate;";
+            
+            // Jobs table
+            $jobs_table = $wpdb->prefix . 'image_description_jobs';
+            $jobs_sql = "CREATE TABLE $jobs_table (
+                id bigint(20) NOT NULL AUTO_INCREMENT,
+                batch_id varchar(255) NOT NULL,
+                attachment_id bigint(20) NOT NULL,
+                status enum('pending','processing','completed','failed','cancelled') DEFAULT 'pending',
+                generated_description text,
+                original_alt_text text,
+                error_message text,
+                retry_count int(11) DEFAULT 0,
+                processed_at datetime NULL,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY batch_id_idx (batch_id),
+                KEY attachment_id_idx (attachment_id),
+                KEY status_idx (status)
+            ) $charset_collate;";
+            
+            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+            
+            // Create tables
+            $result1 = dbDelta($batches_sql);
+            $result2 = dbDelta($jobs_sql);
+            
+            // Log results
+            error_log('WP Image Descriptions: Table creation results:');
+            error_log('Batches table: ' . print_r($result1, true));
+            error_log('Jobs table: ' . print_r($result2, true));
+            
+            // Verify tables were created
+            $batches_exists = $wpdb->get_var("SHOW TABLES LIKE '$batches_table'") === $batches_table;
+            $jobs_exists = $wpdb->get_var("SHOW TABLES LIKE '$jobs_table'") === $jobs_table;
+            
+            error_log('WP Image Descriptions: Table verification:');
+            error_log('Batches table exists: ' . ($batches_exists ? 'yes' : 'no'));
+            error_log('Jobs table exists: ' . ($jobs_exists ? 'yes' : 'no'));
+            
+            if ($batches_exists && $jobs_exists) {
+                // Update database version
+                update_option('wp_image_descriptions_db_version', $target_db_version);
+                error_log('WP Image Descriptions: Database tables created successfully');
+            } else {
+                error_log('WP Image Descriptions: Failed to create database tables');
+            }
+        } else {
+            error_log('WP Image Descriptions: Database tables already up to date (version ' . $current_db_version . ')');
+        }
     }
     
     /**
@@ -214,6 +245,27 @@ class WP_Image_Descriptions {
         $wpdb->query("DROP TABLE IF EXISTS $batches_table");
         
         delete_option('wp_image_descriptions_db_version');
+        
+        error_log('WP Image Descriptions: Database tables removed');
+    }
+    
+    /**
+     * Force recreate database tables (for troubleshooting)
+     */
+    public function force_recreate_tables() {
+        if (!current_user_can('manage_options')) {
+            return false;
+        }
+        
+        error_log('WP Image Descriptions: Force recreating database tables');
+        
+        // Remove existing tables
+        self::remove_database_tables();
+        
+        // Recreate tables
+        $this->create_database_tables();
+        
+        return true;
     }
     
     /**

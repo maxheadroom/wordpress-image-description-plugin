@@ -4,10 +4,10 @@
 - [x] Prompt 1: Set up basic plugin structure and activation
 - [x] Prompt 2: Create settings page with API configuration
 - [x] Prompt 3: Implement OpenAI API client
-- [ ] Prompt 4: Add bulk action to Media Library
-- [ ] Prompt 5: Create basic batch processing system
+- [x] Prompt 4: Add bulk action to Media Library
+- [x] Prompt 5: Create basic batch processing system
 - [ ] Prompt 6: Implement image description generation
-- [ ] Prompt 7: Add test mode preview page
+- [x] Prompt 7: Add test mode preview page
 - [ ] Prompt 8: Implement production mode (apply descriptions)
 - [ ] Prompt 9: Add basic error handling and user feedback
 - [ ] Prompt 10: Wire everything together and test complete workflow

@@ -21,7 +21,18 @@ class WP_Image_Descriptions_API_Client {
      * Constructor
      */
     public function __construct() {
-        $this->settings = new WP_Image_Descriptions_Settings();
+        // Don't initialize settings here to avoid class loading order issues
+        $this->settings = null;
+    }
+    
+    /**
+     * Get settings instance (lazy loading)
+     */
+    private function get_settings() {
+        if ($this->settings === null) {
+            $this->settings = new WP_Image_Descriptions_Settings();
+        }
+        return $this->settings;
     }
     
     /**
@@ -30,7 +41,7 @@ class WP_Image_Descriptions_API_Client {
     public function generate_description($image_url, $prompt_template = null) {
         // Get prompt template
         if (empty($prompt_template)) {
-            $prompt_template = $this->settings->get_setting('prompts.default_template', 
+            $prompt_template = $this->get_settings()->get_setting('prompts.default_template', 
                 'Describe this image for accessibility purposes. Focus on the main subject, important details, and any text visible in the image. Keep the description concise but informative.'
             );
         }
@@ -75,8 +86,8 @@ class WP_Image_Descriptions_API_Client {
      */
     public function test_connection() {
         // Check if API settings are configured
-        $api_key = $this->settings->get_setting('api.api_key', '');
-        $endpoint = $this->settings->get_setting('api.endpoint', '');
+        $api_key = $this->get_settings()->get_setting('api.api_key', '');
+        $endpoint = $this->get_settings()->get_setting('api.endpoint', '');
         
         if (empty($api_key) || empty($endpoint)) {
             return array(
@@ -207,9 +218,9 @@ class WP_Image_Descriptions_API_Client {
      */
     private function prepare_request($image_base64, $prompt_template) {
         // Get API settings
-        $model = $this->settings->get_setting('api.model', 'gpt-4-vision-preview');
-        $max_tokens = $this->settings->get_setting('api.max_tokens', 300);
-        $temperature = $this->settings->get_setting('api.temperature', 0.7);
+        $model = $this->get_settings()->get_setting('api.model', 'gpt-4-vision-preview');
+        $max_tokens = $this->get_settings()->get_setting('api.max_tokens', 300);
+        $temperature = $this->get_settings()->get_setting('api.temperature', 0.7);
         
         // Determine image format from base64 data
         $image_info = getimagesizefromstring(base64_decode($image_base64));
@@ -286,9 +297,9 @@ class WP_Image_Descriptions_API_Client {
      */
     private function make_api_request($request_body) {
         // Get API settings
-        $endpoint = $this->settings->get_setting('api.endpoint', '');
-        $api_key = $this->settings->get_setting('api.api_key', '');
-        $timeout = $this->settings->get_setting('processing.timeout', 30);
+        $endpoint = $this->get_settings()->get_setting('api.endpoint', '');
+        $api_key = $this->get_settings()->get_setting('api.api_key', '');
+        $timeout = $this->get_settings()->get_setting('processing.timeout', 30);
         
         // Prepare headers
         $headers = array(
@@ -438,13 +449,13 @@ class WP_Image_Descriptions_API_Client {
      * Get rate limit delay
      */
     public function get_rate_limit_delay() {
-        return $this->settings->get_setting('processing.rate_limit_delay', 1);
+        return $this->get_settings()->get_setting('processing.rate_limit_delay', 1);
     }
     
     /**
      * Get max retries
      */
     public function get_max_retries() {
-        return $this->settings->get_setting('processing.max_retries', 3);
+        return $this->get_settings()->get_setting('processing.max_retries', 3);
     }
 }
