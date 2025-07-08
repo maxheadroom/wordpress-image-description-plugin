@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: WordPress Image Descriptions
- * Plugin URI: https://repos.mxhdr.net/maxheadroom/wordpress-image-description-plugin
+ * Plugin URI: https://github.com/maxheadroom/wordpress-image-description-plugin
  * Description: Generate AI-powered image descriptions for accessibility using OpenAI-compatible APIs. Helps create alt text for visually impaired users.
- * Version: 1.0.5
+ * Version: 1.0.6
  * Author: Falko Zurell
  * Author URI: https://falko.zurell.de
  * License: GPL v2 or later
@@ -14,7 +14,7 @@
  * Tested up to: 6.4
  * Requires PHP: 7.4
  * Network: false
- * Update URI: https://github.com/your-username/wp-image-descriptions
+ * Update URI: https://github.com/maxheadroom/wordpress-image-description-plugin
  */
 
 // Prevent direct access
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('WP_IMAGE_DESCRIPTIONS_VERSION', '1.0.5');
+define('WP_IMAGE_DESCRIPTIONS_VERSION', '1.0.6');
 define('WP_IMAGE_DESCRIPTIONS_PLUGIN_FILE', __FILE__);
 define('WP_IMAGE_DESCRIPTIONS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WP_IMAGE_DESCRIPTIONS_PLUGIN_URL', plugin_dir_url(__FILE__));
