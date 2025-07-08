@@ -110,21 +110,42 @@ class WP_Image_Descriptions_Plugin_Updater {
      * Get remote version information
      */
     private function get_remote_version() {
-        // For now, we'll use a simple GitHub-based approach
-        // In production, you'd want to use your own update server
+        // Check cache first
+        $cache_key = 'wp_image_descriptions_update_check';
+        $cached_data = get_transient($cache_key);
         
-        $request = wp_remote_get(
-            'https://api.github.com/repos/your-username/wp-image-descriptions/releases/latest',
-            array(
-                'timeout' => 10,
-                'headers' => array(
-                    'Accept' => 'application/vnd.github.v3+json',
-                    'User-Agent' => 'WordPress/' . get_bloginfo('version') . '; ' . home_url()
-                )
+        if ($cached_data !== false) {
+            return $cached_data;
+        }
+        
+        // GitHub repository information
+        $github_user = 'your-username'; // Change this to your GitHub username
+        $github_repo = 'wp-image-descriptions'; // Change this to your repository name
+        
+        // You can also use a custom update server URL instead
+        $update_url = "https://api.github.com/repos/{$github_user}/{$github_repo}/releases/latest";
+        
+        error_log('WP Image Descriptions: Checking for updates from: ' . $update_url);
+        
+        $request = wp_remote_get($update_url, array(
+            'timeout' => 10,
+            'headers' => array(
+                'Accept' => 'application/vnd.github.v3+json',
+                'User-Agent' => 'WordPress/' . get_bloginfo('version') . '; ' . home_url()
             )
-        );
+        ));
         
-        if (is_wp_error($request) || wp_remote_retrieve_response_code($request) !== 200) {
+        if (is_wp_error($request)) {
+            error_log('WP Image Descriptions: Update check failed: ' . $request->get_error_message());
+            // Cache failure for 1 hour to avoid repeated failed requests
+            set_transient($cache_key, false, HOUR_IN_SECONDS);
+            return false;
+        }
+        
+        $response_code = wp_remote_retrieve_response_code($request);
+        if ($response_code !== 200) {
+            error_log('WP Image Descriptions: Update check returned HTTP ' . $response_code);
+            set_transient($cache_key, false, HOUR_IN_SECONDS);
             return false;
         }
         
@@ -132,23 +153,51 @@ class WP_Image_Descriptions_Plugin_Updater {
         $data = json_decode($body, true);
         
         if (empty($data['tag_name'])) {
+            error_log('WP Image Descriptions: No tag_name found in GitHub response');
+            set_transient($cache_key, false, HOUR_IN_SECONDS);
             return false;
         }
         
-        // Parse semantic version
+        // Parse semantic version (remove 'v' prefix if present)
         $version = ltrim($data['tag_name'], 'v');
         if (!$this->is_valid_semver($version)) {
+            error_log('WP Image Descriptions: Invalid version format: ' . $version);
+            set_transient($cache_key, false, HOUR_IN_SECONDS);
             return false;
         }
         
-        return array(
+        // Find the plugin ZIP file in assets
+        $download_url = '';
+        if (!empty($data['assets'])) {
+            foreach ($data['assets'] as $asset) {
+                if (strpos($asset['name'], '.zip') !== false && strpos($asset['name'], 'wp-image-descriptions') !== false) {
+                    $download_url = $asset['browser_download_url'];
+                    break;
+                }
+            }
+        }
+        
+        // Fallback to zipball if no specific asset found
+        if (empty($download_url)) {
+            $download_url = $data['zipball_url'] ?? '';
+        }
+        
+        $version_info = array(
             'version' => $version,
-            'download_url' => $data['zipball_url'] ?? '',
+            'download_url' => $download_url,
             'details_url' => $data['html_url'] ?? '',
             'tested' => '6.4',
             'requires_php' => '7.4',
-            'changelog' => $data['body'] ?? ''
+            'changelog' => $data['body'] ?? '',
+            'release_date' => $data['published_at'] ?? ''
         );
+        
+        // Cache successful result for 12 hours
+        set_transient($cache_key, $version_info, 12 * HOUR_IN_SECONDS);
+        
+        error_log('WP Image Descriptions: Found remote version: ' . $version . ' (current: ' . $this->version . ')');
+        
+        return $version_info;
     }
     
     /**

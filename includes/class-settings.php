@@ -180,6 +180,40 @@ class WP_Image_Descriptions_Settings {
             $this->handle_test_connection();
         }
         
+        // Handle manual update check
+        if (isset($_POST['check_updates']) && wp_verify_nonce($_POST['_wpnonce'], 'wp_image_descriptions_updates')) {
+            $plugin_instance = WP_Image_Descriptions::get_instance();
+            $updater = $plugin_instance->get_updater();
+            
+            if ($updater) {
+                $update_info = $updater->force_update_check();
+                if ($update_info && version_compare(WP_IMAGE_DESCRIPTIONS_VERSION, $update_info['version'], '<')) {
+                    add_settings_error(
+                        'wp_image_descriptions_settings',
+                        'update_available',
+                        sprintf(__('🎉 Update available! Version %s is now available. <a href="%s" target="_blank">View release notes</a>', 'wp-image-descriptions'), 
+                               $update_info['version'], 
+                               $update_info['details_url']),
+                        'updated'
+                    );
+                } else {
+                    add_settings_error(
+                        'wp_image_descriptions_settings',
+                        'no_updates',
+                        __('✅ You have the latest version installed.', 'wp-image-descriptions'),
+                        'updated'
+                    );
+                }
+            } else {
+                add_settings_error(
+                    'wp_image_descriptions_settings',
+                    'update_check_failed',
+                    __('❌ Unable to check for updates. Please check your internet connection.', 'wp-image-descriptions'),
+                    'error'
+                );
+            }
+        }
+        
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -204,6 +238,38 @@ class WP_Image_Descriptions_Settings {
                 <input type="submit" name="test_connection" class="button button-secondary" 
                        value="<?php esc_attr_e('Test Connection', 'wp-image-descriptions'); ?>">
             </form>
+            
+            <h3><?php esc_html_e('Plugin Updates', 'wp-image-descriptions'); ?></h3>
+            <p><?php esc_html_e('Check for plugin updates manually. WordPress automatically checks for updates every 12 hours.', 'wp-image-descriptions'); ?></p>
+            
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><?php esc_html_e('Current Version', 'wp-image-descriptions'); ?></th>
+                    <td>
+                        <strong><?php echo esc_html(WP_IMAGE_DESCRIPTIONS_VERSION); ?></strong>
+                        <?php
+                        $plugin_instance = WP_Image_Descriptions::get_instance();
+                        $version_info = $plugin_instance->get_version_info();
+                        if ($version_info['type'] !== 'stable') {
+                            echo ' <span style="color: #856404;">(' . esc_html(ucwords(str_replace('-', ' ', $version_info['type']))) . ')</span>';
+                        }
+                        ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e('Update Check', 'wp-image-descriptions'); ?></th>
+                    <td>
+                        <form method="post" action="" style="display: inline;">
+                            <?php wp_nonce_field('wp_image_descriptions_updates'); ?>
+                            <input type="submit" name="check_updates" class="button button-secondary" 
+                                   value="<?php esc_attr_e('Check for Updates', 'wp-image-descriptions'); ?>">
+                        </form>
+                        <p class="description">
+                            <?php esc_html_e('Manually check for plugin updates. Updates are also checked automatically.', 'wp-image-descriptions'); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
         </div>
         <?php
     }
