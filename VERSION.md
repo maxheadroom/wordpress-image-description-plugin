@@ -39,8 +39,8 @@ The plugin follows the SemVer format: `MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`
 
 ### Update Sources
 The plugin checks for updates from:
-1. **GitHub Releases** (primary) - `https://github.com/your-username/wp-image-descriptions/releases`
-2. **Custom Update Server** (optional) - For private distributions
+1. **GitHub Releases** (primary) - `https://github.com/maxheadroom/wordpress-image-description-plugin/releases`
+
 
 ### Update Process
 1. **Check**: WordPress checks for updates every 12 hours
@@ -159,7 +159,7 @@ If database changes are needed:
 
 ## Version History
 
-### 1.0.1 (Current)
+### 1.0.6 (Current)
 - Fixed auto-refresh logic on processing pages
 - Improved real-time status detection
 - Enhanced user experience during batch processing
@@ -170,8 +170,3 @@ If database changes are needed:
 - Complete MVP functionality
 - Automatic update system
 - Semantic versioning implementation
-
-### Future Versions
-- **1.2.0**: Enhanced AI provider support, bulk editing improvements
-- **1.3.0**: Performance optimizations, caching system
-- **2.0.0**: Major UI overhaul, new API architecture

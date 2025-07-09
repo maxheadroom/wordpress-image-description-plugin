@@ -232,7 +232,10 @@ GPL v2 or later
 
 ## Changelog
 
-### Version 1.0.3 (Current)
+### Version 1.0.6 (Current)
+- **Enhanced**: Plugin Update capability added
+- **Fixed**: redirect to media library after image description has been applied
+### Version 1.0.3 
 - **Fixed**: Apply descriptions now properly redirects to Media Library instead of showing empty page
 - **Enhanced**: Better success messages with celebration emoji and accessibility notes
 - **Improved**: Comprehensive logging for apply descriptions process
@@ -266,8 +269,3 @@ GPL v2 or later
 - **New**: Accessibility-focused description generation
 - **New**: Database migration system for future updates
 - **New**: Comprehensive diagnostics and troubleshooting tools
-
-### Future Releases
-- **1.4.0**: Enhanced AI provider support, bulk editing improvements
-- **1.5.0**: Performance optimizations, caching system
-- **2.0.0**: Major UI overhaul, new API architecture
