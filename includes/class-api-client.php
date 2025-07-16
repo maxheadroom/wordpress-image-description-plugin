@@ -351,6 +351,7 @@ class WP_Image_Descriptions_API_Client {
         $endpoint = $this->get_setting('api.endpoint', '');
         $api_key = $this->get_setting('api.api_key', '');
         $timeout = $this->get_setting('processing.timeout', 30);
+        $custom_header = $this->get_setting('api.custom_header', '');
         
         // Prepare headers
         $headers = array(
@@ -364,6 +365,18 @@ class WP_Image_Descriptions_API_Client {
             $headers['anthropic-version'] = '2023-06-01';
         } else {
             $headers['Authorization'] = 'Bearer ' . $api_key;
+        }
+        
+        // Add custom header if configured
+        if (!empty($custom_header)) {
+            $header_parts = explode(':', $custom_header, 2);
+            if (count($header_parts) == 2) {
+                $header_name = trim($header_parts[0]);
+                $header_value = trim($header_parts[1]);
+                if (!empty($header_name) && !empty($header_value)) {
+                    $headers[$header_name] = $header_value;
+                }
+            }
         }
         
         // Make request

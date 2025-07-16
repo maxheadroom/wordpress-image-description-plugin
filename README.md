@@ -231,7 +231,8 @@ For issues, feature requests, or contributions:
 GPL v2 or later
 
 ## Changelog
-
+### Version 1.07 (Current)
+- **Enhanced**: added ability to configure custom HTTP header for Backend request.
 ### Version 1.0.6 (Current)
 - **Enhanced**: Plugin Update capability added
 - **Fixed**: redirect to media library after image description has been applied

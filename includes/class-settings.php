@@ -113,6 +113,15 @@ class WP_Image_Descriptions_Settings {
             'api_section'
         );
         
+        // Custom Header field
+        add_settings_field(
+            'custom_header',
+            __('Custom Header', 'wp-image-descriptions'),
+            array($this, 'render_custom_header_field'),
+            $this->page_slug,
+            'api_section'
+        );
+        
         // Processing Settings Section
         add_settings_section(
             'processing_section',
@@ -353,6 +362,15 @@ class WP_Image_Descriptions_Settings {
     }
     
     /**
+     * Render custom header field
+     */
+    public function render_custom_header_field() {
+        $value = $this->get_setting('api.custom_header', '');
+        echo '<input type="text" name="' . $this->option_name . '[api][custom_header]" value="' . esc_attr($value) . '" class="regular-text" placeholder="Header-Name: Header-Value">';
+        echo '<p class="description">' . esc_html__('Optional custom HTTP header to include with API requests. Format: "Header-Name: Header-Value" (e.g., "X-API-Version: 2023-12-01").', 'wp-image-descriptions') . '</p>';
+    }
+    
+    /**
      * Render batch size field
      */
     public function render_batch_size_field() {
@@ -456,6 +474,26 @@ class WP_Image_Descriptions_Settings {
                         'invalid_temperature',
                         __('Temperature must be between 0.0 and 2.0.', 'wp-image-descriptions')
                     );
+                }
+            }
+            
+            // Validate custom header
+            if (isset($input['api']['custom_header'])) {
+                $custom_header = sanitize_text_field($input['api']['custom_header']);
+                if (empty($custom_header)) {
+                    // Empty header is valid (optional field)
+                    $validated['api']['custom_header'] = '';
+                } else {
+                    // Validate header format (should contain a colon)
+                    if (strpos($custom_header, ':') !== false) {
+                        $validated['api']['custom_header'] = $custom_header;
+                    } else {
+                        add_settings_error(
+                            $this->option_name,
+                            'invalid_custom_header',
+                            __('Custom header must be in format "Header-Name: Header-Value" or left empty.', 'wp-image-descriptions')
+                        );
+                    }
                 }
             }
         }

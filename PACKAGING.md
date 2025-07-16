@@ -46,7 +46,7 @@ Both scripts automatically extract the version number from the main plugin file:
 
 ```php
 /**
- * Version: 1.0.3
+ * Version: 1.0.7
  */
 ```
 
